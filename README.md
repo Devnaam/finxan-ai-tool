@@ -56,87 +56,92 @@ A modern, full-stack inventory management system with AI-powered insights, Googl
 
 ### 1. Clone the Repository
 
+```bash
 git clone https://github.com/yourusername/finxan-ai.git
 cd finxan-ai
-
-text
+```
 
 ### 2. Backend Setup
 
+```bash
 cd backend
 npm install
 
-Create .env file
+# Create .env file
 cp .env.example .env
 
-Add your environment variables to .env:
-- PORT
-- MONGO_URI
-- FIREBASE_PROJECT_ID
-- FIREBASE_PRIVATE_KEY
-- FIREBASE_CLIENT_EMAIL
-- GOOGLE_SHEETS_API_KEY
-- EMAIL_USER
-- EMAIL_PASSWORD
-Start backend
-npm run backend
+# Add your environment variables to .env:
+# PORT
+# MONGO_URI
+# FIREBASE_PROJECT_ID
+# FIREBASE_PRIVATE_KEY
+# FIREBASE_CLIENT_EMAIL
+# GOOGLE_SHEETS_API_KEY
+# EMAIL_USER
+# EMAIL_PASSWORD
 
-text
+# Start backend
+npm run backend
+```
 
 ### 3. Frontend Setup
 
+```bash
 cd frontend
 npm install
 
-Create .env file
+# Create .env file
 cp .env.example .env
 
-Add your Firebase config to .env
-Start frontend
-npm run dev
+# Add your Firebase config to .env
 
-text
+# Start frontend
+npm run dev
+```
 
 ### 4. AI Service Setup
 
+```bash
 cd ai-service
 python -m venv venv
 source venv/bin/activate # On Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
 
-Create .env file with GEMINI_API_KEY
-Start AI service
-uvicorn app:app --reload --port 8000
+# Create .env file with GEMINI_API_KEY
 
-text
+# Start AI service
+uvicorn app:app --reload --port 8000
+```
 
 ## 📁 Project Structure
 
+```
 finxan-ai/
 ├── backend/
-│ ├── controllers/
-│ ├── models/
-│ ├── routes/
-│ ├── middleware/
-│ └── server.js
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   └── server.js
 ├── frontend/
-│ ├── src/
-│ │ ├── components/
-│ │ ├── pages/
-│ │ ├── context/
-│ │ └── services/
-│ └── index.html
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── context/
+│   │   └── services/
+│   └── index.html
 ├── ai-service/
-│ ├── app.py
-│ └── requirements.txt
+│   ├── app.py
+│   └── requirements.txt
 └── README.md
-
-text
+```
 
 ## 🔑 Environment Variables
 
 ### Backend (.env)
+
+```
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 FIREBASE_PROJECT_ID=your_project_id
@@ -145,23 +150,24 @@ FIREBASE_CLIENT_EMAIL=your_client_email
 GOOGLE_SHEETS_API_KEY=your_sheets_api_key
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASSWORD=your_app_password
-
-text
+```
 
 ### Frontend (.env)
+
+```
 VITE_FIREBASE_API_KEY=your_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
 VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
-
-text
+```
 
 ### AI Service (.env)
-GEMINI_API_KEY=your_gemini_api_key
 
-text
+```
+GEMINI_API_KEY=your_gemini_api_key
+```
 
 ## 📸 Screenshots
 
@@ -211,8 +217,8 @@ This project is licensed under the MIT License.
 ## 👨‍💻 Author
 
 **Your Name**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: your.email@example.com
+- GitHub: [@devnaam](https://github.com/devnaam)
+- Email: workwithdevnaam@gmail.com
 
 ## 🙏 Acknowledgments
 
@@ -227,4 +233,4 @@ For support, email your.email@example.com or open an issue on GitHub.
 
 ---
 
-Made with ❤️ by [Your Name]
+Made  by Devnaam

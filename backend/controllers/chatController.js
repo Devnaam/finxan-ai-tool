@@ -1,342 +1,313 @@
-const ChatHistory = require("../models/ChatHistory");
-const Inventory = require("../models/Inventory");
-const File = require("../models/File");
-const axios = require("axios");
+const axios = require('axios');
+const Inventory = require('../models/Inventory');
+const User = require('../models/User');
+const Chat = require('../models/Chat');
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
-
-// Helper function to get comprehensive inventory context
-// Helper function to get comprehensive inventory context
+// Helper function to get inventory context from ACTIVE sheets only
 const getInventoryContext = async (userId) => {
-	try {
-		// Get user's active sheets
-		const user = await User.findOne({ firebaseUid: userId }).select(
-			"activeSheets"
-		);
+  try {
+    // Get user's active sheets
+    const user = await User.findOne({ firebaseUid: userId }).select('activeSheets');
+    
+    let inventoryDocs;
+    
+    if (user?.activeSheets && user.activeSheets.length > 0) {
+      // Get data ONLY from active sheets
+      const activeSourceIds = user.activeSheets.map(s => s.sourceId);
+      inventoryDocs = await Inventory.find({ 
+        userId,
+        sourceId: { $in: activeSourceIds }
+      }).populate('fileId');
+    } else {
+      // Fallback: If no active sheets, use uploaded files only
+      inventoryDocs = await Inventory.find({ 
+        userId,
+        sourceType: { $ne: 'google-sheet' }
+      }).populate('fileId');
+    }
+    
+    if (!inventoryDocs || inventoryDocs.length === 0) {
+      return {
+        hasData: false,
+        message: "No inventory data found. Please upload a file or activate a connected sheet.",
+        summary: "No data available"
+      };
+    }
 
-		let inventoryDocs;
+    // Flatten all items from active sources
+    let allItems = [];
+    inventoryDocs.forEach(inv => {
+      if (inv.data && Array.isArray(inv.data)) {
+        allItems = allItems.concat(inv.data);
+      }
+    });
 
-		if (user?.activeSheets && user.activeSheets.length > 0) {
-			// Get data ONLY from active sheets
-			const activeSourceIds = user.activeSheets.map((s) => s.sourceId);
-			inventoryDocs = await Inventory.find({
-				userId,
-				sourceId: { $in: activeSourceIds },
-			}).populate("fileId");
-		} else {
-			// Fallback: If no active sheets, use all inventory data
-			inventoryDocs = await Inventory.find({ userId }).populate("fileId");
-		}
+    if (allItems.length === 0) {
+      return {
+        hasData: false,
+        message: "No inventory items found in active sources.",
+        summary: "No items available"
+      };
+    }
 
-		if (!inventoryDocs || inventoryDocs.length === 0) {
-			return {
-				hasData: false,
-				message:
-					"No inventory data found. Please upload a file or activate a connected sheet.",
-			};
-		}
+    // Calculate statistics
+    const totalItems = allItems.length;
+    const totalValue = allItems.reduce((sum, item) => 
+      sum + ((item.quantity || 0) * (item.price || 0)), 0
+    );
+    const lowStockItems = allItems.filter(item => 
+      item.status === 'low-stock' || item.status === 'out-of-stock'
+    );
+    
+    // Get unique categories
+    const categories = [...new Set(allItems.map(item => item.category).filter(Boolean))];
+    
+    // Category breakdown
+    const categoryBreakdown = {};
+    allItems.forEach(item => {
+      const cat = item.category || 'Uncategorized';
+      if (!categoryBreakdown[cat]) {
+        categoryBreakdown[cat] = { count: 0, value: 0 };
+      }
+      categoryBreakdown[cat].count++;
+      categoryBreakdown[cat].value += (item.quantity || 0) * (item.price || 0);
+    });
 
-		// ... rest of the function remains the same
+    // Create summary for AI
+    const summary = `
+Inventory Summary:
+- Total Products: ${totalItems}
+- Total Value: $${totalValue.toFixed(2)}
+- Low Stock Items: ${lowStockItems.length}
+- Categories: ${categories.length} (${categories.join(', ')})
 
-		// Flatten all inventory items
-		let allItems = [];
-		inventoryDocs.forEach((inv) => {
-			allItems = allItems.concat(inv.data || []);
-		});
+Category Breakdown:
+${Object.entries(categoryBreakdown).map(([cat, data]) => 
+  `- ${cat}: ${data.count} items, $${data.value.toFixed(2)}`
+).join('\n')}
 
-		if (allItems.length === 0) {
-			return {
-				hasData: false,
-				message: "No items in inventory.",
-			};
-		}
+Top 10 Products:
+${allItems.slice(0, 10).map(item => 
+  `- ${item.productName || 'Unknown'}: ${item.quantity || 0} units @ $${(item.price || 0).toFixed(2)} (${item.status || 'in-stock'})`
+).join('\n')}
 
-		// Calculate comprehensive statistics
-		const totalItems = allItems.reduce(
-			(sum, item) => sum + (item.quantity || 0),
-			0
-		);
-		const totalValue = allItems.reduce(
-			(sum, item) => sum + (item.quantity || 0) * (item.price || 0),
-			0
-		);
+Low Stock Items (${lowStockItems.length}):
+${lowStockItems.slice(0, 5).map(item => 
+  `- ${item.productName || 'Unknown'}: ${item.quantity || 0} units (${item.status})`
+).join('\n')}
+    `;
 
-		// Get unique categories
-		const categories = [
-			...new Set(allItems.map((item) => item.category).filter(Boolean)),
-		];
+    return {
+      hasData: true,
+      totalItems,
+      totalValue,
+      lowStockCount: lowStockItems.length,
+      categories,
+      categoryBreakdown,
+      items: allItems,
+      summary: summary.trim()
+    };
 
-		// Calculate per-category totals
-		const categoryBreakdown = {};
-		categories.forEach((cat) => {
-			const catItems = allItems.filter((item) => item.category === cat);
-			categoryBreakdown[cat] = {
-				items: catItems.length,
-				quantity: catItems.reduce((sum, item) => sum + (item.quantity || 0), 0),
-				value: catItems.reduce(
-					(sum, item) => sum + (item.quantity || 0) * (item.price || 0),
-					0
-				),
-			};
-		});
-
-		// Stock status breakdown
-		const inStock = allItems.filter(
-			(item) => item.status === "in-stock"
-		).length;
-		const lowStock = allItems.filter(
-			(item) => item.status === "low-stock"
-		).length;
-		const outOfStock = allItems.filter(
-			(item) => item.status === "out-of-stock"
-		).length;
-
-		// Top 10 valuable products
-		const topProducts = allItems
-			.map((item) => ({
-				name: item.productName,
-				value: (item.quantity || 0) * (item.price || 0),
-				quantity: item.quantity,
-				price: item.price,
-				category: item.category,
-			}))
-			.sort((a, b) => b.value - a.value)
-			.slice(0, 10);
-
-		// Low stock items
-		const lowStockItems = allItems
-			.filter(
-				(item) => item.status === "low-stock" || item.status === "out-of-stock"
-			)
-			.map((item) => ({
-				name: item.productName,
-				quantity: item.quantity,
-				status: item.status,
-				category: item.category,
-			}));
-
-		return {
-			hasData: true,
-			summary: {
-				totalProducts: allItems.length,
-				totalItems: totalItems,
-				totalValue: totalValue,
-				categories: categories,
-				categoryCount: categories.length,
-			},
-			categoryBreakdown: categoryBreakdown,
-			stockStatus: {
-				inStock: inStock,
-				lowStock: lowStock,
-				outOfStock: outOfStock,
-			},
-			topProducts: topProducts,
-			lowStockItems: lowStockItems,
-			allItems: allItems.slice(0, 100), // Send first 100 items for context
-		};
-	} catch (error) {
-		console.error("Error getting inventory context:", error);
-		return {
-			hasData: false,
-			message: "Error fetching inventory data.",
-		};
-	}
+  } catch (error) {
+    console.error('Error getting inventory context:', error);
+    return {
+      hasData: false,
+      message: "Error fetching inventory data",
+      error: error.message,
+      summary: "Error loading data"
+    };
+  }
 };
 
 // @desc    Send message to AI
 exports.sendMessage = async (req, res) => {
-	try {
-		const { message, sessionId } = req.body;
+  try {
+    const { message } = req.body;
+    const userId = req.user.uid;
 
-		if (!message) {
-			return res.status(400).json({
-				success: false,
-				message: "Message is required",
-			});
-		}
+    if (!message || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is required'
+      });
+    }
 
-		// Find or create chat session
-		let chatSession = await ChatHistory.findOne({
-			userId: req.user.uid,
-			sessionId,
-		});
+    console.log(`✉️ AI Chat - User ${userId}: ${message}`);
 
-		if (!chatSession) {
-			chatSession = await ChatHistory.create({
-				userId: req.user.uid,
-				sessionId: sessionId || `session_${Date.now()}`,
-				messages: [],
-			});
-		}
+    // Get inventory context
+    const inventoryContext = await getInventoryContext(userId);
+    
+    if (!inventoryContext.hasData) {
+      console.log('⚠️ No inventory data available for user');
+    } else {
+      console.log(`✅ Loaded ${inventoryContext.totalItems} items for context`);
+    }
 
-		// Add user message
-		chatSession.messages.push({
-			role: "user",
-			content: message,
-			timestamp: new Date(),
-		});
+    // Get chat history (last 10 messages for context)
+    const chatHistory = await Chat.find({ userId })
+      .sort({ timestamp: -1 })
+      .limit(10);
 
-		// Get FULL inventory context
-		const inventoryContext = await getInventoryContext(req.user.uid);
+    const conversationHistory = chatHistory.reverse().map(chat => ({
+      role: chat.role,
+      content: chat.message
+    }));
 
-		if (!inventoryContext.hasData) {
-			const fallbackResponse =
-				inventoryContext.message ||
-				"I don't have any inventory data to analyze yet. Please upload a file first.";
+    // Call AI service
+    const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    
+    console.log(`🤖 Calling AI service at: ${aiServiceUrl}/chat`);
 
-			chatSession.messages.push({
-				role: "assistant",
-				content: fallbackResponse,
-				timestamp: new Date(),
-			});
+    const aiResponse = await axios.post(`${aiServiceUrl}/chat`, {
+      message: message.trim(),
+      inventory_context: inventoryContext.hasData ? {
+        summary: inventoryContext.summary,
+        total_items: inventoryContext.totalItems,
+        total_value: inventoryContext.totalValue,
+        low_stock_count: inventoryContext.lowStockCount,
+        categories: inventoryContext.categories,
+        has_data: true
+      } : {
+        summary: inventoryContext.message || "No inventory data available",
+        has_data: false
+      },
+      conversation_history: conversationHistory
+    }, {
+      timeout: 30000,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
-			await chatSession.save();
+    const aiMessage = aiResponse.data.response;
 
-			return res.status(200).json({
-				success: true,
-				response: fallbackResponse,
-				sessionId: chatSession.sessionId,
-			});
-		}
+    // Save user message to database
+    await Chat.create({
+      userId,
+      role: 'user',
+      message: message.trim(),
+      sessionId: 'default'
+    });
 
-		// Call AI service with RICH context
-		try {
-			const aiResponse = await axios.post(
-				`${AI_SERVICE_URL}/api/ai/chat/message`,
-				{
-					message: message,
-					session_id: chatSession.sessionId,
-					user_id: req.user.uid,
-					context: inventoryContext,
-				},
-				{
-					timeout: 30000,
-				}
-			);
+    // Save AI response to database
+    await Chat.create({
+      userId,
+      role: 'assistant',
+      message: aiMessage,
+      sessionId: 'default'
+    });
 
-			const aiContent =
-				aiResponse.data.response || "I couldn't generate a response.";
+    console.log('✅ AI response saved successfully');
 
-			// Add AI response
-			chatSession.messages.push({
-				role: "assistant",
-				content: aiContent,
-				timestamp: new Date(),
-				metadata: {
-					tokensUsed: aiResponse.data.tokens_used,
-					model: "gemini-2.0-flash-exp",
-				},
-			});
+    res.status(200).json({
+      success: true,
+      message: aiMessage,
+      hasInventoryData: inventoryContext.hasData
+    });
 
-			await chatSession.save();
+  } catch (error) {
+    console.error('❌ Chat error:', error.response?.data || error.message);
+    
+    // More specific error messages
+    let errorMessage = 'Failed to get AI response';
+    
+    if (error.code === 'ECONNREFUSED') {
+      errorMessage = 'AI service is not running. Please start the AI service on port 8000.';
+    } else if (error.response?.status === 500) {
+      errorMessage = 'AI service error. Please check the AI service logs.';
+    } else if (error.response?.data?.detail) {
+      errorMessage = error.response.data.detail;
+    }
 
-			res.status(200).json({
-				success: true,
-				response: aiContent,
-				sessionId: chatSession.sessionId,
-			});
-		} catch (aiError) {
-			console.error("AI Service Error:", aiError.message);
-
-			const fallbackResponse =
-				"I'm having trouble processing your request. Please try again.";
-
-			chatSession.messages.push({
-				role: "assistant",
-				content: fallbackResponse,
-				timestamp: new Date(),
-			});
-
-			await chatSession.save();
-
-			res.status(200).json({
-				success: true,
-				response: fallbackResponse,
-				sessionId: chatSession.sessionId,
-			});
-		}
-	} catch (error) {
-		console.error("Send message error:", error);
-		res.status(500).json({
-			success: false,
-			message: "Failed to send message",
-		});
-	}
-};
-
-// @desc    Create new chat session
-exports.createNewSession = async (req, res) => {
-	try {
-		const sessionId = `session_${Date.now()}`;
-
-		const chatSession = await ChatHistory.create({
-			userId: req.user.uid,
-			sessionId,
-			messages: [],
-		});
-
-		res.status(201).json({
-			success: true,
-			sessionId: chatSession.sessionId,
-		});
-	} catch (error) {
-		console.error("Create session error:", error);
-		res.status(500).json({
-			success: false,
-			message: "Failed to create session",
-		});
-	}
+    res.status(500).json({
+      success: false,
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 };
 
 // @desc    Get chat history
 exports.getChatHistory = async (req, res) => {
-	try {
-		const { sessionId } = req.params;
+  try {
+    const userId = req.user.uid;
+    const { sessionId } = req.params;
+    const { limit = 50 } = req.query;
 
-		const chatSession = await ChatHistory.findOne({
-			userId: req.user.uid,
-			sessionId,
-		});
+    // If sessionId is provided, filter by it
+    const query = { userId };
+    if (sessionId && sessionId !== 'default') {
+      query.sessionId = sessionId;
+    }
 
-		if (!chatSession) {
-			return res.status(404).json({
-				success: false,
-				message: "Chat session not found",
-			});
-		}
+    const chatHistory = await Chat.find(query)
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit));
 
-		res.status(200).json({
-			success: true,
-			messages: chatSession.messages,
-		});
-	} catch (error) {
-		console.error("Get history error:", error);
-		res.status(500).json({
-			success: false,
-			message: "Failed to fetch chat history",
-		});
-	}
+    res.status(200).json({
+      success: true,
+      messages: chatHistory.reverse()
+    });
+
+  } catch (error) {
+    console.error('Get chat history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch chat history'
+    });
+  }
+};
+
+// @desc    Create new chat session
+exports.createNewSession = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+
+    // For now, we're using a single session per user
+    // In future, you can implement multiple sessions
+
+    res.status(200).json({
+      success: true,
+      message: 'Session created',
+      sessionId: 'default'
+    });
+
+  } catch (error) {
+    console.error('Create session error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create session'
+    });
+  }
 };
 
 // @desc    Delete chat session
 exports.deleteSession = async (req, res) => {
-	try {
-		const { sessionId } = req.params;
+  try {
+    const userId = req.user.uid;
+    const { sessionId } = req.params;
 
-		await ChatHistory.deleteOne({
-			userId: req.user.uid,
-			sessionId,
-		});
+    // Delete all messages for this session
+    const query = { userId };
+    if (sessionId && sessionId !== 'default') {
+      query.sessionId = sessionId;
+    }
 
-		res.status(200).json({
-			success: true,
-			message: "Chat session deleted successfully",
-		});
-	} catch (error) {
-		console.error("Delete session error:", error);
-		res.status(500).json({
-			success: false,
-			message: "Failed to delete session",
-		});
-	}
+    const result = await Chat.deleteMany(query);
+
+    console.log(`🗑️ Deleted ${result.deletedCount} messages for user ${userId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Chat history cleared successfully',
+      deletedCount: result.deletedCount
+    });
+
+  } catch (error) {
+    console.error('Delete session error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete session'
+    });
+  }
 };

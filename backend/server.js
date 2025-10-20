@@ -5,6 +5,9 @@ const connectDB = require("./config/db");
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const exportRoutes = require('./routes/exportRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const path = require('path');
+
 
 // Load environment variables
 dotenv.config();
@@ -65,7 +68,8 @@ app.use("/api/inventory", require("./routes/inventoryRoutes"));
 app.use("/api/chat", require("./routes/chatRoutes"));
 app.use("/api/analytics", require("./routes/analyticsRoutes"));
 app.use('/api/export', exportRoutes);
-
+app.use('/api/settings', settingsRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 app.use('/api/alerts', alertRoutes);
