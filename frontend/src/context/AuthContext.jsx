@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userProfile,
-    setUserProfile, // ← ADDED THIS - Now you can update profile from anywhere
+    setUserProfile, // ← ADDED THIS - Now ProfileSettings can update the profile
     signup,
     login,
     loginWithGoogle,
