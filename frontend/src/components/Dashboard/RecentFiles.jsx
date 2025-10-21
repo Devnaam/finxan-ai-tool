@@ -1,134 +1,142 @@
-import { FileText, CheckCircle, Clock, AlertCircle, ExternalLink } from 'lucide-react';
+import { 
+  FileText, 
+  CheckCircle, 
+  Clock, 
+  AlertCircle, 
+  ExternalLink,
+  File 
+} from 'lucide-react';
 
 const RecentFiles = ({ files, onViewAll }) => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-teal-500" />;
       case 'processing':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        return <Clock className="h-4 w-4 text-blue-500 animate-spin" />;
       case 'failed':
         return <AlertCircle className="h-4 w-4 text-red-500" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+        return <File className="h-4 w-4 text-gray-400" />;
     }
   };
 
   const getStatusBadge = (status) => {
-    const styles = {
-      completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      processing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-      failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    const badges = {
+      completed: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+      processing: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      failed: 'bg-red-500/20 text-red-400 border-red-500/30',
     };
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || styles.processing}`}>
-        {getStatusIcon(status)}
-        {status}
-      </span>
-    );
-  };
-
-  const getFileTypeColor = (fileType) => {
-    const colors = {
-      xlsx: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      csv: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      pdf: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-      json: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-    };
-    return colors[fileType?.toLowerCase()] || 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+    return badges[status] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
   };
 
   if (!files || files.length === 0) {
     return (
-      <div className="card h-full">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary-600" />
-            Recent Files
-          </h3>
-        </div>
-        
-        <div className="text-center py-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-            <FileText className="h-8 w-8 text-gray-400" />
-          </div>
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            No files uploaded yet
-          </h4>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">
-            Start by uploading your first inventory file
-          </p>
-          <button className="btn-primary">
-            <FileText className="h-5 w-5 mr-2" />
-            Upload Your First File
-          </button>
-        </div>
+      <div className="
+        bg-white/10 dark:bg-gray-900/50
+        backdrop-blur-xl
+        border border-white/20 dark:border-gray-700/50
+        rounded-2xl
+        p-12
+        text-center
+        animate-fade-in
+      ">
+        <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-600 dark:text-gray-400 mb-2">
+          No files uploaded yet
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-500">
+          Start by uploading your first inventory file
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="card h-full">
+    <div className="
+      bg-white/10 dark:bg-gray-900/50
+      backdrop-blur-xl
+      border border-white/20 dark:border-gray-700/50
+      rounded-2xl
+      p-6
+      animate-fade-in
+    ">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary-600" />
-          Recent Files ({files.length})
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Recent Files
         </h3>
-        <button 
-          onClick={onViewAll}
-          className="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all"
-        >
-          View All
-          <ExternalLink className="h-4 w-4" />
-        </button>
-      </div>
-      
-      <div className="space-y-3">
-        {files.slice(0, 5).map((file) => (
-          <div
-            key={file._id}
-            className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
+        {onViewAll && (
+          <button
+            onClick={onViewAll}
+            className="
+              text-sm font-medium text-cyber-cyan 
+              hover:text-blue-400
+              flex items-center gap-1
+              transition-colors
+            "
           >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg group-hover:scale-110 transition-transform">
-                <FileText className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+            View All
+            <ExternalLink className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Files List */}
+      <div className="space-y-3">
+        {files.map((file, index) => (
+          <div
+            key={file._id || index}
+            className="
+              group
+              bg-white/5 dark:bg-gray-800/50
+              hover:bg-white/10 dark:hover:bg-gray-800/80
+              border border-white/10 dark:border-gray-700/50
+              hover:border-cyber-cyan/30
+              rounded-xl
+              p-4
+              transition-all duration-300
+              cursor-pointer
+            "
+          >
+            <div className="flex items-center gap-4">
+              {/* Status Icon */}
+              <div className="
+                p-2.5 rounded-lg
+                bg-blue-500/20
+                group-hover:scale-110
+                transition-transform duration-300
+              ">
+                {getStatusIcon(file.status)}
               </div>
+
+              {/* File Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {file.fileName}
+                <p className="font-medium text-gray-900 dark:text-white truncate mb-1">
+                  {file.fileName || file.name}
                 </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getFileTypeColor(file.fileType)}`}>
-                    {file.fileType?.toUpperCase()}
+                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span>
+                    {new Date(file.uploadedAt || file.createdAt).toLocaleDateString()}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {new Date(file.uploadedAt).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </span>
+                  <span>•</span>
+                  <span>{file.fileSize || 'Unknown size'}</span>
                 </div>
               </div>
-            </div>
-            <div className="ml-4">
-              {getStatusBadge(file.status)}
+
+              {/* Status Badge */}
+              <div className={`
+                px-3 py-1 rounded-lg
+                text-xs font-medium
+                border backdrop-blur-sm
+                ${getStatusBadge(file.status)}
+              `}>
+                {file.status || 'Unknown'}
+              </div>
             </div>
           </div>
         ))}
       </div>
-
-      {files.length > 5 && (
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button 
-            onClick={onViewAll}
-            className="w-full btn-secondary text-center"
-          >
-            View All {files.length} Files
-          </button>
-        </div>
-      )}
     </div>
   );
 };
